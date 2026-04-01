@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECマスターズ 当選者スケジュール調整</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; background: #f5f7fa; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 20px; text-align: center; }
+  .header h1 { font-size: 1.3rem; font-weight: bold; }
+  .header p { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; }
+  .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+
+  /* ページ切替 */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ログイン */
+  .login-card { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-top: 20px; }
+  .login-card h2 { font-size: 1.1rem; margin-bottom: 8px; color: #1a1a2e; }
+  .login-card p { font-size: 0.85rem; color: #666; margin-bottom: 20px; }
+  .tab-bar { display: flex; gap: 8px; margin-bottom: 24px; }
+  .tab { flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; background: white; cursor: pointer; font-size: 0.85rem; color: #666; transition: all 0.2s; }
+  .tab.active { border-color: #e63946; background: #fff5f5; color: #e63946; font-weight: bold; }
+  input[type=text], input[type=password], input[type=date], textarea {
+    width: 100%; padding: 12px; border: 1.5px solid #e0e0e0; border-radius: 8px;
+    font-size: 0.95rem; transition: border 0.2s; font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: none; border-color: #e63946; }
+  .btn { width: 100%; padding: 13px; background: #e63946; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 12px; transition: background 0.2s; }
+  .btn:hover { background: #c1121f; }
+  .btn-secondary { background: #f0f0f0; color: #333; }
+  .btn-secondary:hover { background: #e0e0e0; }
+
+  /* 当選者フォーム */
+  .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-top: 16px; }
+  .prize-badge { display: inline-block; background: #fff3cd; color: #856404; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; margin: 8px 0 16px; }
+  .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: bold; }
+  .status-done { background: #d1e7dd; color: #0f5132; }
+  .status-pending { background: #fff3cd; color: #856404; }
+  .status-complete { background: #cfe2ff; color: #084298; }
+  .label { font-size: 0.85rem; color: #555; margin-bottom: 6px; margin-top: 16px; font-weight: bold; }
+  .date-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .date-row input { flex: 1; }
+  .remove-btn { background: #f8d7da; color: #842029; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.85rem; }
+  .add-btn { background: #f0f0f0; border: none; border-radius: 8px; padding: 10px; cursor: pointer; font-size: 0.85rem; color: #555; margin-top: 4px; width: 100%; }
+  .note-box { background: #f8f9fa; border-radius: 8px; padding: 12px; font-size: 0.82rem; color: #555; margin: 12px 0; line-height: 1.6; }
+  .already-submitted { background: #d1e7dd; border-radius: 8px; padding: 16px; text-align: center; }
+  .already-submitted p { color: #0f5132; font-weight: bold; }
+
+  /* 事務局 */
+  .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-btn { padding: 6px 14px; border: 1.5px solid #ddd; border-radius: 20px; background: white; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+  .filter-btn.active { border-color: #e63946; background: #e63946; color: white; }
+  .winner-card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); margin-bottom: 12px; }
+  .winner-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .winner-name { font-weight: bold; font-size: 1rem; }
+  .winner-shop { font-size: 0.8rem; color: #777; margin-top: 2px; }
+  .winner-prize { font-size: 0.82rem; color: #555; margin-top: 8px; }
+  .dates-list { margin-top: 10px; }
+  .date-chip { display: inline-block; background: #e8f4fd; color: #1a6fa6; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; margin: 3px; }
+  .no-dates { font-size: 0.82rem; color: #aaa; margin-top: 8px; }
+  .complete-btn { background: #198754; color: white; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; margin-top: 10px; }
+  .complete-btn:hover { background: #157347; }
+  .reopen-btn { background: #6c757d; color: white; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; margin-top: 10px; }
+  .memo-area { margin-top: 10px; }
+  .memo-area textarea { height: 60px; font-size: 0.82rem; }
+  .save-memo-btn { background: #0d6efd; color: white; border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; cursor: pointer; margin-top: 4px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: white; padding: 12px 24px; border-radius: 8px; font-size: 0.9rem; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .summary-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-item { background: white; border-radius: 8px; padding: 10px 16px; font-size: 0.82rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .summary-item span { font-weight: bold; font-size: 1.1rem; color: #e63946; }
+  .gas-url-input { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .gas-url-input label { font-size: 0.82rem; color: #555; font-weight: bold; display: block; margin-bottom: 6px; }
+  .gas-url-input input { margin-bottom: 8px; }
+  .gas-url-input .btn { margin-top: 0; width: auto; padding: 8px 16px; font-size: 0.85rem; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { background: #f8d7da; color: #842029; border-radius: 8px; padding: 12px; font-size: 0.85rem; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎉 ECマスターズ HappyNewYear2026 当選者ページ</h1>
+  <p>スケジュール調整システム</p>
+</div>
+
+<!-- GAS URL設定 (共通) -->
+<div class="container">
+
+</div>
+
+<!-- ===== ログイン画面 ===== -->
+<div id="page-login" class="page active">
+  <div class="container">
+    <div class="login-card">
+      <div class="tab-bar">
+        <button class="tab active" onclick="switchTab('winner')">当選者の方</button>
+        <button class="tab" onclick="switchTab('admin')">事務局</button>
+      </div>
+      <div id="tab-winner">
+        <h2>フォーラムのニックネームでログイン</h2>
+        <p>当選されたニックネームを入力してください</p>
+        <div class="label">ニックネーム</div>
+        <input type="text" id="nicknameInput" placeholder="例：きなこもち" onkeydown="if(event.key==='Enter')loginWinner()">
+        <button class="btn" onclick="loginWinner()" id="loginBtn">ログイン</button>
+        <div id="loginError" class="error-msg" style="display:none;"></div>
+      </div>
+      <div id="tab-admin" style="display:none;">
+        <h2>事務局ログイン</h2>
+        <div class="label">パスワード</div>
+        <input type="password" id="adminPass" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')loginAdmin()">
+        <button class="btn" onclick="loginAdmin()">事務局ページへ</button>
+        <div id="adminError" class="error-msg" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 当選者フォーム ===== -->
+<div id="page-winner" class="page">
+  <div class="container">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:0.85rem;color:#888;">ログイン中：</div>
+          <div style="font-weight:bold;font-size:1.1rem;" id="displayNickname"></div>
+        </div>
+        <button onclick="logout()" style="background:#f0f0f0;border:none;border-radius:6px;padding:6px 12px;font-size:0.8rem;cursor:pointer;">ログアウト</button>
+      </div>
+    </div>
+
+    <div id="winnerContent"></div>
+
+    <button class="btn btn-secondary" onclick="logout()" style="margin-top:8px;">ログアウト</button>
+  </div>
+</div>
+
+<!-- ===== 事務局ページ ===== -->
+<div id="page-admin" class="page">
+  <div class="container">
+    <div class="admin-header">
+      <h2 style="font-size:1.1rem;">事務局管理画面</h2>
+      <button onclick="logout()" style="background:#f0f0f0;border:none;border-radius:6px;padding:6px 12px;font-size:0.8rem;cursor:pointer;">ログアウト</button>
+    </div>
+
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <div class="filter-bar" id="filterBar">
+      <button class="filter-btn active" onclick="filterWinners('all',this)">すべて</button>
+      <button class="filter-btn" onclick="filterWinners('個別訪問',this)">個別訪問</button>
+      <button class="filter-btn" onclick="filterWinners('勉強会',this)">勉強会</button>
+      <button class="filter-btn" onclick="filterWinners('zoom',this)">Zoom</button>
+      <button class="filter-btn" onclick="filterWinners('見学会',this)">見学会</button>
+      <button class="filter-btn" onclick="filterWinners('焼肉',this)">焼肉ディナー</button>
+      <button class="filter-btn" onclick="filterWinners('未回答',this)">未回答</button>
+    </div>
+
+    <div id="adminList"></div>
+    <button class="btn" onclick="loadAdminData()" style="margin-top:8px;">🔄 最新データを読み込む</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 設定 =====
+const ADMIN_PASSWORD = 'ecm2026admin'; // ← 変更してください
+let GAS_URL = 'https://script.google.com/macros/s/AKfycbx7IkifYQSz4ZgeqUZi0t4lDGOQfR6FbPgoqmALmelxtIRC8vU_O-5YvE9Z1vjv_kjM/exec';
+
+// 当選者データ（スプレッドシートから抽出）
+const WINNERS = [
+  // 個別訪問
+  {uid:'3152', nickname:'クウ', shop:'帯きもの寿庵', prize:'清水の個別訪問', notes:''},
+  {uid:'4435', nickname:'きゃっちー', shop:'体操服と学生服のCatch', prize:'清水の個別訪問', notes:''},
+  {uid:'14656', nickname:'クニ', shop:'軽井沢トルタ', prize:'清水の個別訪問', notes:''},
+  {uid:'12404', nickname:'畑の宝石', shop:'畑の宝石', prize:'清水の個別訪問', notes:''},
+  {uid:'1545', nickname:'みそぼん', shop:'味噌通販店 京都御苑東しま村', prize:'清水の個別訪問', notes:'4/10NG'},
+  // 個別勉強会
+  {uid:'2205', nickname:'きなこもち', shop:'青汁・健康茶の健康生活研究所', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'4692', nickname:'Yacrk', shop:'ぽんぽん イラストはんこスタンプ', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'2648', nickname:'スマイル', shop:'犬用自然派おやつ専門店iliosmile', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'3104', nickname:'MYS', shop:'MY WAY SMART', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'3278', nickname:'natumaple', shop:'メイクボックスのナチュメイプル', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'6157', nickname:'きんちゃん', shop:'カー用品・雑貨の Funny Store', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'7381', nickname:'ミカサン', shop:'バッグと財布RICKERS', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'11603', nickname:'ととのう', shop:'アイデア.com コジット公式ストア', prize:'清水の個別勉強会開催', notes:'確認中'},
+  {uid:'6296', nickname:'ちーかま店長', shop:'雑貨通販 Happy Space', prize:'清水の個別勉強会開催', notes:''},
+  {uid:'11796', nickname:'ナコタ', shop:'Nakota', prize:'清水の個別勉強会開催', notes:'確認中'},
+  // Zoom
+  {uid:'10108', nickname:'ふくいけ', shop:'電気雑貨・生活雑貨の駿華堂', prize:'清水の個別zoomサポート(30分)', notes:''},
+  {uid:'6247', nickname:'カメレオン', shop:'インソールと靴の専門店 ルッチェ', prize:'清水の個別zoomサポート(30分)', notes:''},
+  {uid:'14883', nickname:'おさかな', shop:'看護師運営のお店 ナス屋', prize:'清水の個別zoomサポート(30分)', notes:''},
+  {uid:'12062', nickname:'ナリヨシ', shop:'岩手こだわりの食 贈喜屋', prize:'清水の個別zoomサポート(30分)', notes:''},
+  // 見学会
+  {uid:'6400', nickname:'かなパン', shop:'もっちり米粉パン工房ピーターパン', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'7429', nickname:'いわちゃん0912', shop:'キーテイル 猫の爪とぎ', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'3161', nickname:'せいちゃん', shop:'緑茶・健康茶・サプリ 茶の心', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'9382', nickname:'もっちー', shop:'桜えび削り節カネジョウ', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'3887', nickname:'Yasu', shop:'明治28年創業 お茶専門店 大西茶舗', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'11228', nickname:'風呂ふた', shop:'東プレ風呂ふた満足館', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'5853', nickname:'スギちゃん', shop:'木のおもちゃ知育玩具 エデュテ', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'1311', nickname:'にゃ', shop:'フォーマルドレスメンズ クラレナ', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'2105', nickname:'よっちゃん', shop:'7dials楽天市場支店', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  {uid:'5886', nickname:'たそがれ親父', shop:'おつまみ問屋', prize:'ECマスターズLIVEスタジオ見学会&食事会', notes:'2026年6月以降（工事後）'},
+  // 焼肉ディナー
+  {uid:'6174', nickname:'KAZU0101', shop:'フラワーギフトのマスダグリーン', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:''},
+  {uid:'10642', nickname:'npk', shop:'keyroom 食と暮らしのパントリー', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'確認中'},
+  {uid:'8282', nickname:'やたまや', shop:'ソーラーライト SDカード スタート', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'3/23候補'},
+  {uid:'1120', nickname:'JTM', shop:'ストール・帽子のJPコンセプト', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:''},
+  {uid:'12030', nickname:'Goods66', shop:'良品販売 マーフィーショップ', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:''},
+  {uid:'1855', nickname:'葉っぱ', shop:'神戸マザーズランプ', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'3/23候補'},
+  {uid:'7028', nickname:'ソルト', shop:'リダクティオ 楽天市場店', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'3.23参加OK'},
+  {uid:'12475', nickname:'にしかず', shop:'クララ こども靴 こども服', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'3/23参加確認OK'},
+  {uid:'3595', nickname:'wolf999', shop:'地球元気村GOLA', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:''},
+  {uid:'3467', nickname:'じゅん', shop:'カステラ専門店 長崎 心泉堂', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'来月以降'},
+  {uid:'4268', nickname:'RDW', shop:'こどもレンタルドレスワールド', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:''},
+  {uid:'12904', nickname:'鳥人', shop:'テイジングループ直営 生活雑貨店', prize:'清水と行く高級焼肉パワーディナー＠東京', notes:'参加済'},
+];
+
+let currentUser = null;
+let adminData = {}; // {uid: {dates:[], memo:'', completed:false}}
+
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url) { showToast('URLを入力してください'); return; }
+  GAS_URL = url;
+  localStorage.setItem('gasUrl', url);
+  showToast('✅ GAS URLを保存しました');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-winner').style.display = tab === 'winner' ? 'block' : 'none';
+  document.getElementById('tab-admin').style.display = tab === 'admin' ? 'block' : 'none';
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('id-' + id) && document.getElementById('id-' + id).classList.add('active');
+  document.getElementById('page-' + id).classList.add('active');
+}
+
+async function loginWinner() {
+  const nick = document.getElementById('nicknameInput').value.trim();
+  if (!nick) { showError('loginError', 'ニックネームを入力してください'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.innerHTML = '<span class="spinner"></span>確認中...';
+  btn.disabled = true;
+
+  const winner = WINNERS.find(w => w.nickname.toLowerCase() === nick.toLowerCase());
+  if (!winner) {
+    showError('loginError', '該当するニックネームが見つかりませんでした。\nフォーラムのニックネームをご確認ください。');
+    btn.innerHTML = 'ログイン'; btn.disabled = false;
+    return;
+  }
+
+  currentUser = winner;
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('displayNickname').textContent = winner.nickname + ' さん';
+
+  // GASからデータ取得
+  let submission = null;
+  if (GAS_URL) {
+    try {
+      const res = await fetch(`${GAS_URL}?action=get&uid=${winner.uid}`);
+      const data = await res.json();
+      if (data.success) submission = data.data;
+    } catch(e) {}
+  }
+  renderWinnerForm(winner, submission);
+  showPage('winner');
+  btn.innerHTML = 'ログイン'; btn.disabled = false;
+}
+
+function renderWinnerForm(winner, submission) {
+  const container = document.getElementById('winnerContent');
+  const isCompleted = submission && submission.completed;
+
+  if (isCompleted) {
+    container.innerHTML = `
+      <div class="card">
+        <div class="prize-badge">🎁 ${winner.prize}</div>
+        <div class="already-submitted">
+          <p>✅ スケジュール調整が完了しました</p>
+          <p style="font-size:0.85rem;color:#0f5132;margin-top:6px;">事務局からの連絡をお待ちください。</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const alreadyDates = submission ? submission.dates : [];
+  const alreadyComment = submission ? submission.comment : '';
+  const isSubmitted = alreadyDates.length > 0;
+
+  const dateInputs = alreadyDates.length > 0
+    ? alreadyDates.map((d,i) => dateRowHtml(i, d)).join('')
+    : dateRowHtml(0, '') + dateRowHtml(1, '') + dateRowHtml(2, '');
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="prize-badge">🎁 ${winner.prize}</div>
+      ${winner.notes ? `<div style="font-size:0.82rem;color:#888;margin-bottom:8px;">📌 ${winner.notes}</div>` : ''}
+      ${isSubmitted ? '<div class="status-badge status-pending">✏️ 回答済み（変更可）</div>' : ''}
+      <div class="note-box">
+        ご都合の良い日程を3つ以上ご入力ください。<br>
+        事務局にて確認後、改めてご連絡いたします。
+      </div>
+      <div class="label">希望日程（3つ以上推奨）</div>
+      <div id="dateInputs">${dateInputs}</div>
+      <button class="add-btn" onclick="addDateInput()">＋ 日程を追加する</button>
+      <div class="label">コメント・備考（任意）</div>
+      <textarea id="commentInput" placeholder="日程についての補足など">${alreadyComment}</textarea>
+      <button class="btn" onclick="submitSchedule()" id="submitBtn">
+        ${isSubmitted ? '🔄 日程を更新する' : '📅 希望日程を送信する'}
+      </button>
+      <div id="submitMsg"></div>
+    </div>`;
+}
+
+function dateRowHtml(i, val) {
+  return `<div class="date-row" id="dr${i}">
+    <input type="date" value="${val}" min="${new Date().toISOString().split('T')[0]}">
+    <button class="remove-btn" onclick="removeDateRow('dr${i}')">削除</button>
+  </div>`;
+}
+let dateCounter = 3;
+function addDateInput() {
+  const html = dateRowHtml(dateCounter, '');
+  document.getElementById('dateInputs').insertAdjacentHTML('beforeend', html);
+  dateCounter++;
+}
+function removeDateRow(id) {
+  const el = document.getElementById(id);
+  if (el && document.querySelectorAll('.date-row').length > 1) el.remove();
+}
+
+async function submitSchedule() {
+  const dates = [...document.querySelectorAll('#dateInputs input[type=date]')]
+    .map(i => i.value).filter(v => v);
+  const comment = document.getElementById('commentInput').value;
+  if (dates.length === 0) { showToast('日程を1つ以上入力してください'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.innerHTML = '<span class="spinner"></span>送信中...'; btn.disabled = true;
+
+  if (!GAS_URL) {
+    showToast('⚠️ GAS URLが設定されていません');
+    btn.innerHTML = '📅 希望日程を送信する'; btn.disabled = false;
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      action: 'submit',
+      uid: currentUser.uid,
+      nickname: currentUser.nickname,
+      shop: currentUser.shop,
+      prize: currentUser.prize,
+      dates: dates.join(','),
+      comment,
+      updatedAt: new Date().toISOString()
+    });
+    const res = await fetch(GAS_URL + '?' + params.toString(), { method: 'GET' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ 送信しました！');
+      document.getElementById('submitMsg').innerHTML = '<div class="already-submitted" style="margin-top:12px;"><p>✅ 送信完了しました。ありがとうございます！</p></div>';
+    } else {
+      showToast('❌ 送信に失敗しました: ' + data.message);
+    }
+  } catch(e) {
+    showToast('❌ 通信エラーが発生しました');
+  }
+  btn.innerHTML = '🔄 日程を更新する'; btn.disabled = false;
+}
+
+async function loginAdmin() {
+  const pass = document.getElementById('adminPass').value;
+  if (pass !== ADMIN_PASSWORD) {
+    showError('adminError', 'パスワードが違います'); return;
+  }
+  document.getElementById('adminError').style.display = 'none';
+  showPage('admin');
+  await loadAdminData();
+}
+
+async function loadAdminData() {
+  if (!GAS_URL) { showToast('GAS URLを設定してください'); renderAdminList({}); return; }
+  try {
+    const res = await fetch(`${GAS_URL}?action=getAll`);
+    const data = await res.json();
+    if (data.success) {
+      adminData = data.data || {};
+      renderAdminList(adminData);
+      showToast('✅ データを読み込みました');
+    }
+  } catch(e) {
+    showToast('❌ データ取得エラー');
+    renderAdminList({});
+  }
+}
+
+function renderAdminList(data, filter = 'all') {
+  const list = document.getElementById('adminList');
+  const total = WINNERS.length;
+  const answered = WINNERS.filter(w => data[w.uid] && data[w.uid].dates && data[w.uid].dates.length > 0).length;
+  const completed = WINNERS.filter(w => data[w.uid] && data[w.uid].completed).length;
+
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="summary-item">全当選者 <span>${total}</span>名</div>
+    <div class="summary-item">回答済 <span>${answered}</span>名</div>
+    <div class="summary-item">調整完了 <span>${completed}</span>名</div>
+    <div class="summary-item">未回答 <span>${total - answered}</span>名</div>`;
+
+  const filtered = WINNERS.filter(w => {
+    if (filter === 'all') return true;
+    if (filter === '未回答') return !data[w.uid] || !data[w.uid].dates || data[w.uid].dates.length === 0;
+    return w.prize.includes(filter);
+  });
+
+  list.innerHTML = filtered.map(w => {
+    const d = data[w.uid] || {};
+    const dates = d.dates || [];
+    const completed = d.completed || false;
+    const memo = d.memo || '';
+    return `
+    <div class="winner-card" id="wc${w.uid}">
+      <div class="winner-top">
+        <div>
+          <div class="winner-name">${w.nickname}
+            ${completed ? '<span class="status-badge status-complete" style="margin-left:8px;">✅ 完了</span>' : ''}
+            ${!completed && dates.length > 0 ? '<span class="status-badge status-pending" style="margin-left:8px;">📅 回答あり</span>' : ''}
+            ${!completed && dates.length === 0 ? '<span class="status-badge" style="background:#f0f0f0;color:#888;margin-left:8px;">未回答</span>' : ''}
+          </div>
+          <div class="winner-shop">${w.shop}</div>
+        </div>
+        <div style="font-size:0.78rem;color:#888;">${w.notes || ''}</div>
+      </div>
+      <div class="winner-prize">🎁 ${w.prize}</div>
+      <div class="dates-list">
+        ${dates.length > 0
+          ? dates.map(d => `<span class="date-chip">📅 ${d}</span>`).join('')
+          : '<div class="no-dates">希望日程の入力待ち</div>'}
+      </div>
+      ${d.comment ? `<div style="font-size:0.82rem;color:#666;margin-top:8px;">💬 ${d.comment}</div>` : ''}
+      <div class="memo-area">
+        <textarea id="memo${w.uid}" placeholder="事務局メモ（内部用）">${memo}</textarea>
+        <button class="save-memo-btn" onclick="saveMemo('${w.uid}')">メモを保存</button>
+      </div>
+      <div style="margin-top:8px;">
+        ${completed
+          ? `<button class="reopen-btn" onclick="toggleComplete('${w.uid}', false)">⬅️ 完了を取り消す</button>`
+          : `<button class="complete-btn" onclick="toggleComplete('${w.uid}', true)">✅ 調整完了にする</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterWinners(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAdminList(adminData, filter);
+}
+
+async function toggleComplete(uid, val) {
+  if (!GAS_URL) { showToast('GAS URLを設定してください'); return; }
+  try {
+    const params = new URLSearchParams({ action: 'setCompleted', uid, completed: val });
+    const res = await fetch(GAS_URL + '?' + params.toString());
+    const data = await res.json();
+    if (data.success) {
+      if (!adminData[uid]) adminData[uid] = {};
+      adminData[uid].completed = val;
+      renderAdminList(adminData);
+      showToast(val ? '✅ 完了フラグを立てました' : '⬅️ 完了を取り消しました');
+    }
+  } catch(e) { showToast('❌ 更新エラー'); }
+}
+
+async function saveMemo(uid) {
+  const memo = document.getElementById('memo' + uid).value;
+  if (!GAS_URL) { showToast('GAS URLを設定してください'); return; }
+  try {
+    const params = new URLSearchParams({ action: 'saveMemo', uid, memo });
+    const res = await fetch(GAS_URL + '?' + params.toString());
+    const data = await res.json();
+    if (data.success) {
+      if (!adminData[uid]) adminData[uid] = {};
+      adminData[uid].memo = memo;
+      showToast('📝 メモを保存しました');
+    }
+  } catch(e) { showToast('❌ 保存エラー'); }
+}
+
+function logout() {
+  currentUser = null;
+  document.getElementById('nicknameInput').value = '';
+  document.getElementById('adminPass').value = '';
+  showPage('login');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+
+</script>
+</body>
+</html>
